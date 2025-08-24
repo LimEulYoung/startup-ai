@@ -1,15 +1,18 @@
+from openai import OpenAI
 import os
-import asyncio
+import json
 from typing import Dict, List
-from agents import Agent, Runner, trace, ModelSettings
-
 
 
 class RegulationAgentSystem:
     def __init__(self):
+        # OpenAI API 키 설정
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        
+        self.client = OpenAI(api_key=api_key)
         self.regulations = self._load_regulations()
-        self.specialist_agents = self._create_specialist_agents()
-        self.orchestrator_agent = self._create_orchestrator_agent()
     
     def _load_regulations(self) -> Dict[str, str]:
         """규정 파일들을 로드"""
@@ -22,140 +25,12 @@ class RegulationAgentSystem:
                         regs[filename] = f.read()
         return regs
     
-    def _create_specialist_agents(self) -> Dict[str, Agent]:
-        """각 규정별 전문 에이전트 생성"""
-        agents = {}
-        
-        # 규정별 에이전트 정의
-        regulation_configs = {
-            "중소기업창업 지원사업 운영요령(중소벤처기업부고시)(제2024-101호)(20241206).txt": {
-                "name": "startup_support_agent",
-                "description": "창업지원사업 운영, 신청자격, 절차, 협약, 관리감독 전문가"
-            },
-            "창업사업화 지원사업 통합관리지침.txt": {
-                "name": "budget_management_agent", 
-                "description": "예산집행, 수당지급, 회계처리, 사업비 관리 전문가"
-            },
-            "전문계약직 운영지침.txt": {
-                "name": "contract_employee_agent",
-                "description": "전문계약직 채용, 급여, 연봉, 근무조건 전문가"
-            },
-            "위임전결규정.txt": {
-                "name": "delegation_agent",
-                "description": "업무처리 권한, 결재절차, 위임전결사항 전문가"
-            },
-            "국외출장 등에 대한 관리지침.txt": {
-                "name": "overseas_trip_agent",
-                "description": "국외출장 절차, 출장비, 허가기준, 심사방법 전문가"
-            },
-            "여비규정.txt": {
-                "name": "travel_expense_agent",
-                "description": "출장여비, 일비, 숙박비, 여행경비 기준 전문가"
-            },
-            "보수규정.txt": {
-                "name": "salary_agent",
-                "description": "연봉, 급여체계, 각종 수당 금액 전문가"
-            },
-            "복무규정.txt": {
-                "name": "work_regulation_agent",
-                "description": "근무시간, 휴가일수, 근무규칙, 출결관리 전문가"
-            },
-            "직위운용규칙.txt": {
-                "name": "position_agent",
-                "description": "직위 호칭, 직급 체계, 직책 호칭 전문가"
-            },
-            "직제규정.txt": {
-                "name": "organization_agent", 
-                "description": "조직구조, 부서별 업무, 직급체계, 정원 전문가"
-            },
-            "채용 지침.txt": {
-                "name": "recruitment_agent",
-                "description": "채용절차, 심사기준, 면접전형, 합격자 결정 전문가"
-            },
-            "청년인턴 운영지침.txt": {
-                "name": "youth_intern_agent",
-                "description": "청년인턴 채용, 급여, 근무조건, 평가, 멘토링 전문가"
-            },
-            "취업규칙.txt": {
-                "name": "employment_rule_agent",
-                "description": "근로조건, 취업규칙, 근무시간, 휴가, 급여, 복무 전문가"
-            },
-            "퇴직금 지급 규정.txt": {
-                "name": "retirement_pay_agent",
-                "description": "퇴직금, 퇴직급여 계산, 지급조건, 명예퇴직수당 전문가"
-            }
-        }
-        
-        # 직급 정보 추가
-        job_grade_info = """
-직급 정보:
-- 3급: 차장
-- 4급: 과장  
-- 5급: 주임 또는 대리
-- 6급: 사원
-- 팀장: 1(나)급, 1(가)급, 또는 2급 직원 중 하나
-"""
-        
-        for filename, config in regulation_configs.items():
-            if filename in self.regulations:
-                regulation_content = self.regulations[filename]
-                
-                instructions = f"""당신은 창업진흥원 {config['description']}입니다.
-주어진 규정을 바탕으로 사용자 질문에 정확하고 간결한 답변을 제공하세요.
+    def _classification_agent(self, user_query: str) -> str:
+        """규정 분류 에이전트"""
+        system_prompt = """당신은 창업진흥원 규정 분류 전문가입니다.
+사용자 질문을 분석해서 가장 적합한 규정을 선택하세요.
 
-답변 규칙:
-1. 반드시 한 줄로 연속된 텍스트로만 답변 (줄바꿈, 리스트, 구분자 금지)
-2. 카카오톡 메신저에서 사용할 것이므로 줄바꿈 없는 일반 텍스트만 사용
-3. 불렛포인트(-), 번호매기기(1.), 줄바꿈(\\n) 절대 금지
-4. 질문에 정확히 대응하는 내용만 답변
-5. 수당/금액 질문이면 구체적 수치와 간단한 설명을 한 문장으로
-6. 카카오톡 대화하듯 친근하고 자연스럽게
-7. 모든 정보를 쉼표나 접속사로 연결하여 하나의 연속된 문장으로 구성
-
-{job_grade_info}
-
-관련 규정:
-{regulation_content[:45000]}"""
-
-                agent = Agent(
-                    name=config["name"],
-                    instructions=instructions,
-                    handoff_description=config["description"],
-                    model="gpt-4o"
-                    #model_settings=ModelSettings(
-                    #    reasoning={"effort": "medium"}
-                    #)
-                )
-                
-                agents[filename] = agent
-        
-        return agents
-    
-    def _create_orchestrator_agent(self) -> Agent:
-        """모든 전문 에이전트를 도구로 활용하는 오케스트레이터 에이전트 생성"""
-        
-        # 전문 에이전트들을 도구로 변환
-        tools = []
-        for filename, agent in self.specialist_agents.items():
-            tools.append(
-                agent.as_tool(
-                    tool_name=f"consult_{agent.name}",
-                    tool_description=agent.handoff_description
-                )
-            )
-        
-        orchestrator_instructions = """당신은 창업진흥원 규정 질의응답 전문 오케스트레이터입니다.
-사용자의 질문을 분석하여 가장 적합한 전문가에게 자문을 요청하세요.
-
-**절대적 규칙:**
-1. 절대로 자신이 직접 답변하지 마세요
-2. 반드시 제공된 도구(전문가)를 호출하세요
-3. 전문가의 답변을 받으면 한 글자도 수정하거나 추가하지 말고 그대로 전달하세요
-4. 전문가 답변에 설명이나 추가 정보를 덧붙이지 마세요
-5. 전문가 답변을 재구성하거나 정리하지 마세요
-6. 전문가가 답변한 그 내용을 변경 없이 그대로 사용자에게 전달하는 것이 유일한 역할입니다
-
-질문의 핵심 의도를 파악해서 다음 규정 전문가 중 가장 적합한 전문가를 선택하세요:
+다음 14개 규정 중에서 선택하세요:
 
 1. startup_support_agent (중소기업창업 지원사업 운영요령)
 - 창업지원사업의 기본 운영체계와 절차를 규정
@@ -269,69 +144,143 @@ class RegulationAgentSystem:
 - 퇴직급여의 수령자, 지급시기, 권리 소멸 규정
 - 주요 키워드: 퇴직금, 퇴직급여, 명예퇴직수당, 계속근로기간
 
-한 번에 하나의 전문가만 호출하세요.
-전문가의 답변을 받으면 어떤 수정이나 추가도 하지 말고 전문가의 원본 답변을 그대로 반환하세요."""
+사용자 질문의 핵심 의도를 파악해서 다음 중 하나만 답변하세요:
+- 운영요령
+- 통합관리지침  
+- 전문계약직지침
+- 위임전결규정
+- 국외출장지침
+- 여비규정
+- 보수규정
+- 복무규정
+- 직위운용규칙
+- 직제규정
+- 채용지침
+- 청년인턴지침
+- 취업규칙
+- 퇴직금규정"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"사용자 질문: {user_query}"}
+                ],
+                temperature=0.1,
+                max_tokens=50
+            )
+            
+            result = response.choices[0].message.content.strip()
+            
+            # 파일명 매핑
+            regulation_mapping = {
+                "통합관리지침": "창업사업화 지원사업 통합관리지침.txt",
+                "전문계약직지침": "전문계약직 운영지침.txt", 
+                "위임전결규정": "위임전결규정.txt",
+                "국외출장지침": "국외출장 등에 대한 관리지침.txt",
+                "여비규정": "여비규정.txt",
+                "보수규정": "보수규정.txt",
+                "복무규정": "복무규정.txt",
+                "직위운용규칙": "직위운용규칙.txt",
+                "직제규정": "직제규정.txt",
+                "채용지침": "채용 지침.txt",
+                "청년인턴지침": "청년인턴 운영지침.txt",
+                "취업규칙": "취업규칙.txt",
+                "퇴직금규정": "퇴직금 지급 규정.txt"
+            }
+            
+            # 매핑에서 찾기
+            for key, filename in regulation_mapping.items():
+                if key in result:
+                    if filename in self.regulations:
+                        return filename
+            
+            # 기본값: 운영요령
+            return "중소기업창업 지원사업 운영요령(중소벤처기업부고시)(제2024-101호)(20241206).txt"
+                    
+        except Exception:
+            # 에러 시 기본 선택 (운영요령)
+            return "중소기업창업 지원사업 운영요령(중소벤처기업부고시)(제2024-101호)(20241206).txt"
+    
+    def _response_agent(self, user_query: str, regulation_file: str) -> str:
+        """답변 생성 에이전트"""
+        regulation_content = self.regulations[regulation_file]
         
-        return Agent(
-            name="regulation_orchestrator",
-            instructions=orchestrator_instructions,
-            tools=tools,
-            model="gpt-4o"
-            #model_settings=ModelSettings(
-            #    reasoning={"effort": "medium"}
-            #)
-        )
+        # 직급 정보 추가
+        job_grade_info = """
+직급 정보:
+- 3급: 차장
+- 4급: 과장  
+- 5급: 주임 또는 대리
+- 6급: 사원
+- 팀장: 1(나)급, 1(가)급, 또는 2급 직원 중 하나
+"""
+        
+        system_prompt = f"""당신은 창업진흥원 규정 질의응답 전문가입니다.
+주어진 규정을 바탕으로 사용자 질문에 정확하고 간결한 답변을 제공하세요.
+
+답변 규칙:
+1. 반드시 한 줄로 연속된 텍스트로만 답변 (줄바꿈, 리스트, 구분자 금지)
+2. 카카오톡 메신저에서 사용할 것이므로 줄바꿈 없는 일반 텍스트만 사용
+3. 불렛포인트(-), 번호매기기(1.), 줄바꿈(\\n) 절대 금지
+4. 질문에 정확히 대응하는 내용만 답변
+5. 수당/금액 질문이면 구체적 수치와 간단한 설명을 한 문장으로
+6. 카카오톡 대화하듯 친근하고 자연스럽게
+7. 모든 정보를 쉼표나 접속사로 연결하여 하나의 연속된 문장으로 구성
+
+{job_grade_info}"""
+
+        user_message = f"""사용자 질문: {user_query}
+
+관련 규정:
+{regulation_content[:45000]}
+
+위 규정을 참고해서 질문에 답변해주세요."""
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.1,
+                max_tokens=300
+            )
+            
+            return response.choices[0].message.content.strip()
+            
+        except Exception as e:
+            return "답변 생성 중 오류가 발생했습니다."
     
     async def search(self, user_query: str) -> dict:
-        """사용자 질의에 대한 답변 생성"""
+        """전체 에이전트 시스템 실행"""
         try:
-            with trace("Regulation Q&A"):
-                result = await Runner.run(
-                    starting_agent=self.orchestrator_agent,
-                    input=user_query
-                )
-                
-                # 사용된 에이전트 추적
-                used_agents = []
-                agent_descriptions = []
-                
-                # result 객체에서 function call 정보 추출
-                if hasattr(result, 'new_items'):
-                    for item in result.new_items:
-                        if hasattr(item, 'raw_item') and hasattr(item.raw_item, 'name'):
-                            tool_name = item.raw_item.name
-                            if isinstance(tool_name, str) and tool_name.startswith('consult_'):
-                                agent_name = tool_name.replace('consult_', '')
-                                used_agents.append(agent_name)
-                                
-                                # 에이전트명으로 설명 찾기
-                                for filename, agent in self.specialist_agents.items():
-                                    if agent.name == agent_name:
-                                        agent_descriptions.append(agent.handoff_description)
-                                        break
-                
-                # 에이전트 정보가 없으면 기본값 설정
-                if not used_agents:
-                    used_agents = ["자동_라우팅"]
-                    agent_descriptions = ["OpenAI Agents SDK 자동 라우팅"]
-                
-                return {
-                    "query": user_query,
-                    "selected_regulations": agent_descriptions,
-                    "selected_agents": used_agents,
-                    "classification_reason": "에이전트 기반 자동 분류",
-                    "answer": result.final_output,
-                    "sources": agent_descriptions,
-                    "reasoning": "OpenAI Agents SDK 기반 생성",
-                    "relevant_sections": []
-                }
-                
+            # 1단계: 분류 에이전트 (빠른 응답)
+            selected_file = self._classification_agent(user_query)
+            
+            # 2단계: 답변 생성 에이전트 (빠른 응답)
+            answer = self._response_agent(user_query, selected_file)
+            
+            return {
+                "query": user_query,
+                "selected_regulations": [selected_file.replace('.txt', '')],
+                "selected_agents": ["simple_classification_agent", "simple_response_agent"],
+                "classification_reason": "단순 OpenAI API 기반 분류",
+                "answer": answer,
+                "sources": [selected_file.replace('.txt', '')],
+                "reasoning": "단순 OpenAI API 기반 생성",
+                "relevant_sections": []
+            }
+            
         except Exception as e:
             return {
                 "query": user_query,
                 "selected_regulations": [],
+                "selected_agents": [],
                 "classification_reason": "오류 발생",
-                "answer": f"답변 생성 중 오류가 발생했습니다: {str(e)}",
+                "answer": "오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
                 "sources": [],
                 "reasoning": str(e),
                 "relevant_sections": []
@@ -340,6 +289,7 @@ class RegulationAgentSystem:
     # 기존 API 호환성을 위한 동기 래퍼
     def search_sync(self, user_query: str) -> dict:
         """동기 버전의 search 메서드"""
+        import asyncio
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
