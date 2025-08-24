@@ -1,7 +1,8 @@
 import os
 import asyncio
 from typing import Dict, List
-from agents import Agent, Runner, trace
+from agents import Agent, Runner, trace, ModelSettings
+
 
 
 class RegulationAgentSystem:
@@ -119,7 +120,11 @@ class RegulationAgentSystem:
                 agent = Agent(
                     name=config["name"],
                     instructions=instructions,
-                    handoff_description=config["description"]
+                    handoff_description=config["description"],
+                    model="gpt-4o"
+                    #model_settings=ModelSettings(
+                    #    reasoning={"effort": "medium"}
+                    #)
                 )
                 
                 agents[filename] = agent
@@ -270,7 +275,11 @@ class RegulationAgentSystem:
         return Agent(
             name="regulation_orchestrator",
             instructions=orchestrator_instructions,
-            tools=tools
+            tools=tools,
+            model="gpt-4o"
+            #model_settings=ModelSettings(
+            #    reasoning={"effort": "medium"}
+            #)
         )
     
     async def search(self, user_query: str) -> dict:

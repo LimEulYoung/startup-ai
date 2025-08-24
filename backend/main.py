@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.models.schemas import UserQuery, AgenticSearchResult
 from backend.agents.agent_system import RegulationAgentSystem
 import os
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
 
 app = FastAPI(
     title="창업진흥원 규정 질의응답 API",
@@ -27,9 +31,18 @@ async def startup_event():
     global regulation_agents
     
     try:
+        # OpenAI API 키가 환경변수에 설정되었는지 확인
         api_key = os.getenv("OPENAI_API_KEY")
-        regulation_agents = RegulationAgentSystem(api_key=api_key)
+        if not api_key:
+            print("Warning: OPENAI_API_KEY not found in environment variables")
+            regulation_agents = None
+            return
+            
+        # OpenAI Agents SDK 기반 시스템 초기화
+        regulation_agents = RegulationAgentSystem()
+        print("RegulationAgentSystem initialized successfully with OpenAI Agents SDK")
     except Exception as e:
+        print(f"Failed to initialize RegulationAgentSystem: {e}")
         regulation_agents = None
 
 @app.get("/")
@@ -53,13 +66,18 @@ async def get_regulations():
 
 @app.post("/api/test-classification")
 async def test_classification(query: UserQuery):
-    """분류 테스트용 엔드포인트"""
+    """분류 테스트용 엔드포인트 (OpenAI Agents SDK에서는 자동 분류)"""
     if not regulation_agents:
         raise HTTPException(status_code=503, detail="Agents not initialized")
     
     try:
-        selected_file = regulation_agents._classification_agent(query.query)
-        return {"query": query.query, "selected_file": selected_file}
+        # OpenAI Agents SDK에서는 오케스트레이터가 자동으로 적절한 에이전트 선택
+        result = await regulation_agents.search(query.query)
+        return {
+            "query": query.query, 
+            "classification_method": "OpenAI Agents SDK 자동 분류",
+            "selected_agents": result["sources"]
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -69,7 +87,7 @@ async def search_regulations(query: UserQuery):
         raise HTTPException(status_code=503, detail="Agents not initialized")
     
     try:
-        result = regulation_agents.search(query.query)
+        result = await regulation_agents.search(query.query)
         return AgenticSearchResult(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
