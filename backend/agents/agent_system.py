@@ -17,11 +17,24 @@ class RegulationAgentSystem:
             print("✓ UPSTAGE_API_KEY found")
             
             print("🔍 Step 2: Initializing OpenAI client...")
-            self.client = OpenAI(
-                api_key=upstage_api_key,
-                base_url="https://api.upstage.ai/v1"
-            )
-            print("✓ OpenAI client created")
+            # 프록시 환경변수 임시 제거
+            old_proxy_vars = {}
+            proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'NO_PROXY', 'no_proxy']
+            for var in proxy_vars:
+                if var in os.environ:
+                    old_proxy_vars[var] = os.environ[var]
+                    del os.environ[var]
+            
+            try:
+                self.client = OpenAI(
+                    api_key=upstage_api_key,
+                    base_url="https://api.upstage.ai/v1"
+                )
+                print("✓ OpenAI client created")
+            finally:
+                # 프록시 환경변수 복원
+                for var, value in old_proxy_vars.items():
+                    os.environ[var] = value
             
             print("🔍 Step 3: Loading regulation files...")
             self.regulations = self._load_regulations()
