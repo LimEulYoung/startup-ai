@@ -1,6 +1,8 @@
 import os
 import json
 import time
+import requests
+import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional
 from datetime import datetime
 from openai import OpenAI
@@ -571,9 +573,64 @@ class RegulationAgentSystem:
         return result
     
     def _get_startup_news(self) -> str:
-        """창업진흥원 관련 뉴스 가져오기 (임시 비활성화)"""
+        """창업진흥원 관련 뉴스 가져오기"""
         today = datetime.now().strftime("%Y년 %m월 %d일")
-        return f"📮 오늘의 창업진흥원 뉴스 ({today})\n\n뉴스 기능이 일시적으로 비활성화되었습니다.\n시스템 안정화 후 다시 제공될 예정입니다."
+        
+        try:
+            # Google News RSS URL (정확한 검색을 위해 따옴표 사용)
+            rss_url = "https://news.google.com/rss/search?q=%22%EC%B0%BD%EC%97%85%EC%A7%84%ED%9D%A5%EC%9B%90%22+when:1d&hl=ko&gl=KR&ceid=KR:ko"
+            
+            # RSS 피드 가져오기
+            headers = {'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'}
+            response = requests.get(rss_url, headers=headers, timeout=10, proxies={})
+            response.raise_for_status()
+            
+            # XML 파싱
+            root = ET.fromstring(response.content)
+            items = root.findall('.//item')
+            
+            if not items:
+                return f"📮 오늘의 창업진흥원 뉴스 ({today})\n\n오늘은 창업진흥원 관련 뉴스가 없습니다."
+            
+            # 최대 10개 뉴스만 가져오기
+            news_list = []
+            for i, item in enumerate(items[:10]):
+                title = item.find('title')
+                source = item.find('source')
+                pub_date = item.find('pubDate')
+                link = item.find('link')
+                
+                if title is not None:
+                    title_text = title.text.strip()
+                    source_text = source.text.strip() if source is not None else "미상"
+                    link_text = link.text.strip() if link is not None else ""
+                    
+                    # 발행 시간을 간단히 표시 (시간 정보만)
+                    time_text = ""
+                    if pub_date is not None:
+                        try:
+                            # GMT 시간을 한국 시간으로 변환하지 않고 간단히 표시
+                            pub_time = datetime.strptime(pub_date.text, "%a, %d %b %Y %H:%M:%S %Z")
+                            time_text = f" ({pub_time.strftime('%H:%M')})"
+                        except:
+                            time_text = ""
+                    
+                    # 뉴스 항목 포맷: 제목 + 언론사 + 시간 + URL
+                    news_item = f"🔸 {title_text}\n   📰 {source_text}{time_text}"
+                    if link_text:
+                        news_item += f"\n   🔗 {link_text}"
+                    
+                    news_list.append(news_item)
+            
+            if news_list:
+                news_content = "\n\n".join(news_list)
+                return f"📮 오늘의 창업진흥원 뉴스 ({today})\n\n{news_content}"
+            else:
+                return f"📮 오늘의 창업진흥원 뉴스 ({today})\n\n오늘은 창업진흥원 관련 뉴스가 없습니다."
+                
+        except Exception as e:
+            print(f"뉴스 가져오기 실패: {e}")
+            return f"📮 오늘의 창업진흥원 뉴스 ({today})\n\n현재 뉴스 서비스에 일시적 문제가 있습니다.\n잠시 후 다시 시도해주세요."
     
     async def search(self, user_query: str, user_id: Optional[str] = None) -> dict:
         """전체 에이전트 시스템 실행"""
