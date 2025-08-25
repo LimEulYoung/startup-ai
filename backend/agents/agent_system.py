@@ -11,46 +11,27 @@ from backend.memory import ConversationMemory
 
 class RegulationAgentSystem:
     def __init__(self):
-        try:
-            print("🔍 Step 1: Checking UPSTAGE_API_KEY...")
-            upstage_api_key = os.getenv("UPSTAGE_API_KEY")
-            if not upstage_api_key:
-                raise ValueError("UPSTAGE_API_KEY environment variable is required")
-            print("✓ UPSTAGE_API_KEY found")
-            
-            print("🔍 Step 2: Initializing OpenAI client...")
-            # httpx 라이브러리 호환성 문제 해결을 위해 사용자 정의 HTTP 클라이언트 사용
-            import httpx
-            
-            # 프록시 없는 httpx 클라이언트 생성
-            http_client = httpx.Client(
-                timeout=30.0,
-                follow_redirects=True
-            )
-            
-            self.client = OpenAI(
-                api_key=upstage_api_key,
-                base_url="https://api.upstage.ai/v1",
-                http_client=http_client
-            )
-            print("✓ OpenAI client created with custom HTTP client")
-            
-            print("🔍 Step 3: Loading regulation files...")
-            self.regulations = self._load_regulations()
-            print(f"✓ Loaded {len(self.regulations)} regulation files")
-            
-            print("🔍 Step 4: Initializing ConversationMemory...")
-            self.memory = ConversationMemory()
-            print("✓ ConversationMemory initialized")
-            
-            print("✅ RegulationAgentSystem initialization completed successfully")
-            
-        except Exception as e:
-            print(f"❌ RegulationAgentSystem.__init__ failed: {e}")
-            import traceback
-            print("Full traceback:")
-            traceback.print_exc()
-            raise
+        # Upstage API 클라이언트 초기화
+        upstage_api_key = os.getenv("UPSTAGE_API_KEY")
+        if not upstage_api_key:
+            raise ValueError("UPSTAGE_API_KEY environment variable is required")
+        
+        # httpx 클라이언트로 프록시 호환성 해결
+        import httpx
+        http_client = httpx.Client(
+            timeout=30.0,
+            follow_redirects=True
+        )
+        
+        self.client = OpenAI(
+            api_key=upstage_api_key,
+            base_url="https://api.upstage.ai/v1",
+            http_client=http_client
+        )
+        
+        # 규정 파일 로드 및 메모리 초기화
+        self.regulations = self._load_regulations()
+        self.memory = ConversationMemory()
     
     def _load_regulations(self) -> Dict[str, str]:
         """규정 파일들을 로드"""
