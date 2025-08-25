@@ -17,24 +17,21 @@ class RegulationAgentSystem:
             print("✓ UPSTAGE_API_KEY found")
             
             print("🔍 Step 2: Initializing OpenAI client...")
-            # 프록시 환경변수 임시 제거
-            old_proxy_vars = {}
-            proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'NO_PROXY', 'no_proxy']
-            for var in proxy_vars:
-                if var in os.environ:
-                    old_proxy_vars[var] = os.environ[var]
-                    del os.environ[var]
+            # httpx 라이브러리 호환성 문제 해결을 위해 사용자 정의 HTTP 클라이언트 사용
+            import httpx
             
-            try:
-                self.client = OpenAI(
-                    api_key=upstage_api_key,
-                    base_url="https://api.upstage.ai/v1"
-                )
-                print("✓ OpenAI client created")
-            finally:
-                # 프록시 환경변수 복원
-                for var, value in old_proxy_vars.items():
-                    os.environ[var] = value
+            # 프록시 없는 httpx 클라이언트 생성
+            http_client = httpx.Client(
+                timeout=30.0,
+                follow_redirects=True
+            )
+            
+            self.client = OpenAI(
+                api_key=upstage_api_key,
+                base_url="https://api.upstage.ai/v1",
+                http_client=http_client
+            )
+            print("✓ OpenAI client created with custom HTTP client")
             
             print("🔍 Step 3: Loading regulation files...")
             self.regulations = self._load_regulations()
