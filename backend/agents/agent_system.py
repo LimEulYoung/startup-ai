@@ -553,8 +553,16 @@ class RegulationAgentSystem:
         
         elapsed = time.time() - start_time
         result = response.choices[0].message.content.strip()
+        
+        # 마크다운 제거 후처리
+        result = self._clean_markdown(result)
+        
         print(f"Solar-Pro2 response completed: {elapsed:.2f}s | Length: {len(result)} chars")
         return result
+    
+    def _clean_markdown(self, text: str) -> str:
+        """마크다운 ** 제거 함수"""
+        return text.replace("**", "")
     
     def _get_startup_news(self) -> str:
         """창업진흥원 관련 뉴스 가져오기"""
