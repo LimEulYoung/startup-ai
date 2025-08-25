@@ -11,17 +11,28 @@ from backend.memory import ConversationMemory
 
 class RegulationAgentSystem:
     def __init__(self):
-        # Upstage API 클라이언트 (분류 및 응답 생성용)
-        upstage_api_key = os.getenv("UPSTAGE_API_KEY")
-        if not upstage_api_key:
-            raise ValueError("UPSTAGE_API_KEY environment variable is required")
-        
-        self.client = OpenAI(
-            api_key=upstage_api_key,
-            base_url="https://api.upstage.ai/v1"
-        )
-        self.regulations = self._load_regulations()
-        self.memory = ConversationMemory()  # 대화 이력 관리자
+        try:
+            # Upstage API 클라이언트 (분류 및 응답 생성용)
+            upstage_api_key = os.getenv("UPSTAGE_API_KEY")
+            if not upstage_api_key:
+                raise ValueError("UPSTAGE_API_KEY environment variable is required")
+            
+            self.client = OpenAI(
+                api_key=upstage_api_key,
+                base_url="https://api.upstage.ai/v1"
+            )
+            
+            # 규정 파일 로드
+            self.regulations = self._load_regulations()
+            print(f"Loaded {len(self.regulations)} regulation files")
+            
+            # 대화 이력 관리자 초기화
+            self.memory = ConversationMemory()
+            print("ConversationMemory initialized successfully")
+            
+        except Exception as e:
+            print(f"Error in RegulationAgentSystem.__init__: {e}")
+            raise
     
     def _load_regulations(self) -> Dict[str, str]:
         """규정 파일들을 로드"""
@@ -552,7 +563,8 @@ class RegulationAgentSystem:
             rss_url = "https://news.google.com/rss/search?q=%22%EC%B0%BD%EC%97%85%EC%A7%84%ED%9D%A5%EC%9B%90%22+when:1d&hl=ko&gl=KR&ceid=KR:ko"
             
             # RSS 피드 가져오기
-            response = requests.get(rss_url, timeout=10)
+            headers = {'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)'}
+            response = requests.get(rss_url, headers=headers, timeout=10, proxies={})
             response.raise_for_status()
             
             # XML 파싱
