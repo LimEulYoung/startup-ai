@@ -53,6 +53,13 @@ python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
 # 개발 서버 실행 (자동 재시작)
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 백그라운드 실행
+nohup python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
+
+## 서버 종료
+ps aux | grep uvicorn
+kill -9 1234
 ```
 
 서버가 성공적으로 시작되면:
