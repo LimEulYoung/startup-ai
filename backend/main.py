@@ -40,16 +40,16 @@ async def startup_event():
     global regulation_agents
     
     try:
-        # OpenAI API 키가 환경변수에 설정되었는지 확인
-        api_key = os.getenv("OPENAI_API_KEY")
+        # Upstage API 키가 환경변수에 설정되었는지 확인
+        api_key = os.getenv("UPSTAGE_API_KEY")
         if not api_key:
-            print("Warning: OPENAI_API_KEY not found in environment variables")
+            print("Warning: UPSTAGE_API_KEY not found in environment variables")
             regulation_agents = None
             return
             
-        # OpenAI Agents SDK 기반 시스템 초기화
+        # Upstage Solar-Pro2 기반 시스템 초기화
         regulation_agents = RegulationAgentSystem()
-        print("RegulationAgentSystem initialized successfully with OpenAI Agents SDK")
+        print("RegulationAgentSystem initialized successfully with Upstage Solar-Pro2")
     except Exception as e:
         print(f"Failed to initialize RegulationAgentSystem: {e}")
         regulation_agents = None
