@@ -624,6 +624,10 @@ class RegulationAgentSystem:
         
         # 📮 오늘의 창업진흥원 명령어 처리
         if user_query.strip() == "📮 오늘의 창업진흥원":
+            # 메모리 초기화 (새로운 대화시작과 동일)
+            if user_id:
+                self.memory.clear_user_history(user_id)
+            
             news_result = self._get_startup_news()
             return {
                 "query": user_query,
