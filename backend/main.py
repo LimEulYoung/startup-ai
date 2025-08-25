@@ -67,28 +67,6 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
-@app.get("/api/regulations")
-async def get_regulations():
-    if not regulation_agents:
-        raise HTTPException(status_code=503, detail="Agents not initialized")
-    return {"regulations": list(regulation_agents.regulations.keys())}
-
-@app.post("/api/test-classification")
-async def test_classification(query: UserQuery):
-    """분류 테스트용 엔드포인트 (OpenAI Agents SDK에서는 자동 분류)"""
-    if not regulation_agents:
-        raise HTTPException(status_code=503, detail="Agents not initialized")
-    
-    try:
-        # OpenAI Agents SDK에서는 오케스트레이터가 자동으로 적절한 에이전트 선택
-        result = await regulation_agents.search(query.query)
-        return {
-            "query": query.query, 
-            "classification_method": "OpenAI Agents SDK 자동 분류",
-            "selected_agents": result["sources"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/regulation-search")
 async def search_regulations(query: UserQuery):
@@ -96,6 +74,7 @@ async def search_regulations(query: UserQuery):
         raise HTTPException(status_code=503, detail="Agents not initialized")
     
     try:
+        # 웹 API는 user_id 없이 호출 (메모리 기능 없음)
         result = await regulation_agents.search(query.query)
         return AgenticSearchResult(**result)
     except Exception as e:
@@ -126,8 +105,8 @@ async def kakao_chatbot(kakao_req: KakaoRequest):
         )
     
     try:
-        # GPT-4o-mini로 직접 AI 처리 (빠른 응답 기대)
-        result = await regulation_agents.search(user_question)
+        # GPT-4o-mini로 직접 AI 처리 (빠른 응답 기대) - 사용자 ID 포함
+        result = await regulation_agents.search(user_question, user_id)
         answer = result.get("answer", "답변을 찾을 수 없습니다.")
         
         logger.info(f"[KAKAO CHATBOT] {timestamp} - AI response for user {user_id}: {answer[:100]}...")

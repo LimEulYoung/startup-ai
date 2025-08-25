@@ -7,13 +7,8 @@ class UserQuery(BaseModel):
 
 class AgenticSearchResult(BaseModel):
     query: str
-    selected_regulations: List[str]
-    selected_agents: List[str]  # 새로 추가: 사용된 에이전트 이름들
-    classification_reason: str
     answer: str
-    sources: List[str]
-    reasoning: str
-    relevant_sections: List[str]
+    total_time: str
 
 # 카카오톡 챗봇 스키마
 class KakaoUser(BaseModel):
