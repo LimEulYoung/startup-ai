@@ -47,7 +47,7 @@ class RegulationAgentSystem:
     def _classification_agent(self, user_query: str, user_id: Optional[str] = None) -> str:
         """규정 분류 에이전트"""
         start_time = time.time()
-        print(f"분류 에이전트 시작: {user_query[:30]}...")
+        print(f"Classification agent started: {user_query[:30]}...")
         
         # 대화 이력 컨텍스트 구성
         conversation_context = ""
@@ -334,7 +334,7 @@ class RegulationAgentSystem:
         
         result = response.choices[0].message.content.strip()
         elapsed = time.time() - start_time
-        print(f"solar-pro2 분류 완료: {elapsed:.2f}초 | 결과: {result}")
+        print(f"Solar-Pro2 classification completed: {elapsed:.2f}s | Result: {result}")
         
         # 규정없음인지 먼저 확인
         if "규정없음" in result:
@@ -479,7 +479,7 @@ class RegulationAgentSystem:
     def _response_agent(self, user_query: str, regulation_file: str, user_id: Optional[str] = None) -> str:
         """답변 생성 에이전트"""
         start_time = time.time()
-        print(f"응답 생성 시작: {regulation_file[:30]}...")
+        print(f"Response agent started: {regulation_file[:30]}...")
         
         regulation_content = self.regulations[regulation_file]
         
@@ -550,7 +550,7 @@ class RegulationAgentSystem:
         
         elapsed = time.time() - start_time
         result = response.choices[0].message.content.strip()
-        print(f"solar-pro2 응답 완료: {elapsed:.2f}초 | 길이: {len(result)}자")
+        print(f"Solar-Pro2 response completed: {elapsed:.2f}s | Length: {len(result)} chars")
         return result
     
     def _get_startup_news(self) -> str:
@@ -610,7 +610,7 @@ class RegulationAgentSystem:
                 return f"📮 오늘의 창업진흥원 뉴스 ({today})\n\n오늘은 창업진흥원 관련 뉴스가 없습니다."
                 
         except Exception as e:
-            print(f"뉴스 가져오기 실패: {e}")
+            print(f"News fetch failed: {e}")
             return f"📮 오늘의 창업진흥원 뉴스 ({today})\n\n현재 뉴스 서비스에 일시적 문제가 있습니다.\n잠시 후 다시 시도해주세요."
     
     async def search(self, user_query: str, user_id: Optional[str] = None) -> dict:
@@ -618,9 +618,9 @@ class RegulationAgentSystem:
         total_start = time.time()
         # 이모지가 포함된 명령어는 출력 대신 간단히 표시
         if "🌟 새로운 대화시작" in user_query:
-            print("\n[대화 초기화 명령 처리 중...]")
+            print("\n[Processing conversation reset command...]")
         else:
-            print(f"\n전체 요청 시작: '{user_query}'")
+            print(f"\nRequest started: '{user_query}'")
         
         # 📮 오늘의 창업진흥원 명령어 처리
         if user_query.strip() == "📮 오늘의 창업진흥원":
@@ -639,7 +639,7 @@ class RegulationAgentSystem:
         if user_query.strip() == "🌟 새로운 대화시작":
             if user_id:
                 self.memory.clear_user_history(user_id)
-                print(f"사용자 {user_id}의 대화 이력을 초기화했습니다.")
+                print(f"Cleared conversation history for user {user_id}")
                 
                 return {
                     "query": user_query,
@@ -668,7 +668,7 @@ class RegulationAgentSystem:
             self.memory.add_message(user_id, "assistant", answer, selected_file)
         
         total_elapsed = time.time() - total_start
-        print(f"전체 요청 완료: {total_elapsed:.2f}초\n" + "="*50 + "\n")
+        print(f"Request completed: {total_elapsed:.2f}s\n" + "="*50 + "\n")
         
         return {
             "query": user_query,
