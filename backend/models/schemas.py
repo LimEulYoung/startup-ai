@@ -38,6 +38,7 @@ class KakaoUserRequest(BaseModel):
     utterance: str
     lang: Optional[str] = None
     user: KakaoUser
+    callbackUrl: Optional[str] = None
 
 class KakaoBot(BaseModel):
     id: str
@@ -61,4 +62,6 @@ class KakaoTemplate(BaseModel):
 
 class KakaoResponse(BaseModel):
     version: str = "2.0"
-    template: KakaoTemplate
+    template: Optional[KakaoTemplate] = None
+    useCallback: Optional[bool] = None
+    data: Optional[Dict[str, Any]] = None
