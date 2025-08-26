@@ -51,8 +51,15 @@ class ConversationMemory:
             return history[-limit:]
         return history
     
-    def build_context_string(self, user_id: str) -> str:
-        """GPT 컨텍스트용 대화 이력 문자열 생성"""
+    def build_context_string(self, user_id: str, include_regulation_info: bool = True) -> str:
+        """GPT 컨텍스트용 대화 이력 문자열 생성
+        
+        Args:
+            user_id: 사용자 ID
+            include_regulation_info: 규정 정보 포함 여부 (기본 True)
+                - True: 분류 에이전트용 (규정 정보 포함)
+                - False: 응답 에이전트용 (순수 대화 내용만)
+        """
         history = self.get_conversation_history(user_id)
         if not history:
             return ""
@@ -62,12 +69,16 @@ class ConversationMemory:
             if msg["role"] == "user":
                 context_lines.append(f"사용자: {msg['content']}")
             else:
-                # 어시스턴트 응답에 사용된 규정 정보 포함
-                regulation_info = ""
-                if "regulation_file" in msg and msg["regulation_file"] != "default.txt":
-                    regulation_name = msg["regulation_file"].replace(".txt", "")
-                    regulation_info = f" [사용된 규정: {regulation_name}]"
-                context_lines.append(f"어시스턴트: {msg['content']}{regulation_info}")
+                if include_regulation_info:
+                    # 분류 에이전트용: 규정 정보 포함
+                    regulation_info = ""
+                    if "regulation_file" in msg and msg["regulation_file"] != "default.txt":
+                        regulation_name = msg["regulation_file"].replace(".txt", "")
+                        regulation_info = f" [사용된 규정: {regulation_name}]"
+                    context_lines.append(f"어시스턴트: {msg['content']}{regulation_info}")
+                else:
+                    # 응답 에이전트용: 순수 대화 내용만
+                    context_lines.append(f"어시스턴트: {msg['content']}")
         
         return "\n".join(context_lines)
     

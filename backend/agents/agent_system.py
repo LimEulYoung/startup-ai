@@ -49,7 +49,7 @@ class RegulationAgentSystem:
         start_time = time.time()
         print(f"Classification agent started: {user_query[:30]}...")
         
-        # 대화 이력 컨텍스트 구성
+        # 대화 이력 컨텍스트 구성 (분류 에이전트용 - 규정 정보 포함)
         conversation_context = ""
         if user_id:
             conversation_context = self.memory.build_context_string(user_id)
@@ -60,10 +60,12 @@ class RegulationAgentSystem:
 사용자 질문을 분석해서 가장 적합한 규정을 선택하세요.
 {conversation_context}
 
+🚨 **중요**: 답변은 반드시 규정 이름만 출력하세요. 어떠한 설명, 근거, 부연설명도 절대 금지입니다.
+
 🚨 **대화 맥락 우선 원칙** 🚨
-- 대화 이력에 "[사용된 규정: XXX]"가 있다면, 현재 질문도 동일한 규정일 가능성이 **매우 높습니다**
-- 이전에 사용한 규정을 **강력하게 우선** 고려하세요
-- 질문이 불완전하거나 애매해도 이전 규정과 연관지어 해석하세요
+- 대화 이력에 "[사용된 규정: XXX]"가 있다면, 현재 질문도 동일한 규정일 가능성이 높습니다
+- 이전에 사용한 규정을 우선 고려하세요
+- 질문이 불완전하거나 애매하면 이전 규정과 연관지어 해석하세요
 
 분류 규칙:
 1. **이전 규정 연속성 검사**: 대화 이력에서 마지막으로 사용된 규정을 확인하고, 현재 질문이 그 연장선상인지 우선 판단
@@ -255,8 +257,15 @@ class RegulationAgentSystem:
 
 사용자 질문의 핵심 의도를 파악해서 다음 중 **정확히 하나의 규정 이름만** 답변하세요.
 
-⚠️ **답변 형식**: 설명 없이 규정 이름만 "-규정이름" 형태로 답변
-예시: "-aa규정", "-bb규정"
+🚨 **절대 금지사항**:
+- 설명, 근거, 검토과정, 재검토 등 어떤 부연설명도 금지
+- 괄호 안 추가 정보 금지  
+- "최종 답변", "재검토 후", "다만", "하지만" 등의 표현 금지
+- "가장 적합합니다", "것으로 보입니다" 등의 판단 근거 금지
+- 오직 규정 이름 하나만 출력하세요
+
+⚠️ **답변 형식**: 규정 이름만 단순 출력
+예시: "aa규정", "bb", "cc규정"
 
 선택할 수 있는 규정:
 -감사규정 시행규칙
@@ -493,10 +502,10 @@ class RegulationAgentSystem:
 - 팀장: 1(나)급, 1(가)급, 또는 2급 직원 중 하나
 """
         
-        # 대화 이력 컨텍스트 구성
+        # 대화 이력 컨텍스트 구성 (응답 에이전트용 - 규정 정보 제외)
         conversation_context = ""
         if user_id:
-            conversation_context = self.memory.build_context_string(user_id)
+            conversation_context = self.memory.build_context_string(user_id, include_regulation_info=False)
             if conversation_context:
                 conversation_context = f"\n최근 대화 이력:\n{conversation_context}\n"
 
@@ -525,6 +534,12 @@ class RegulationAgentSystem:
 4. 카카오톡 대화하듯 친근하고 자연스럽게(존댓말 사용)
 5. 최근 대화 이력이 있다면 맥락을 고려해서 답변
 6. 3문장 이내로 간결하게 답변
+
+🚨 출력 형태 제한:
+- 절대로 "(사용된 규정:" 또는 "[사용된 규정:" 형태의 텍스트를 답변에 포함하지 마세요
+- 규정 조문번호나 별표 언급 금지 (예: "제44조", "별표2" 등)
+- 괄호 안에 규정 정보를 넣지 마세요
+- 순수한 답변 내용만 제공하세요
 
 {job_grade_info}"""
 
